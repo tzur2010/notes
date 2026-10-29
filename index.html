@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>פתקים</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .note-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      padding: 16px 16px 0 16px;
+    }
+    /* לחיצה אחת פותחת תפריט | לחיצה כפולה מפעילה את הפורס */
+    h2 {
+      margin: 0;
+      padding: 10px 4px 14px 4px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #1c1c1e;
+      border-bottom: 1px solid #e5e5ea;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .item-list {
+      flex: 1;
+      overflow-y: auto;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      -webkit-overflow-scrolling: touch;
+    }
+    .item-list li {
+      padding: 14px 6px;
+      border-bottom: 1px solid #f2f2f7;
+      font-size: 1.1rem;
+      color: #2c2c2e;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.15s ease;
+    }
+    .item-list li:active {
+      background-color: #e5e5ea;
+    }
+    .selected {
+      background-color: #fff9c4 !important;
+      font-weight: 600;
+      border-radius: 6px;
+    }
+    .check-mark {
+      color: #ff9500;
+      font-weight: bold;
+      font-size: 1.15rem;
+    }
+
+    /* חלון בחירת עיר */
+    #city-picker-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: #ffffff;
+      width: 88%;
+      max-width: 360px;
+      height: 70vh;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+      font-size: 1.15rem;
+      font-weight: bold;
+      margin-bottom: 12px;
+      text-align: center;
+      color: #1c1c1e;
+    }
+    .picker-list {
+      flex: 1;
+      overflow-y: auto;
+      list-style: none;
+      border: 1px solid #e5e5ea;
+      border-radius: 8px;
+      padding: 0;
+      margin: 0 0 14px 0;
+    }
+    .picker-list li {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f2f2f7;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .picker-list li.active-choice {
+      background-color: #007aff;
+      color: #ffffff;
+      font-weight: bold;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+    }
+    .modal-actions button {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="note-container">
+  <h2 id="secret-trigger">יעדים לחופשה הבאה ✈️ (100 רעיונות)</h2>
+  <ul class="item-list" id="list"></ul>
+</div>
+
+<!-- חלון בחירת עיר -->
+<div id="city-picker-modal">
+  <div class="modal-content">
+    <div class="modal-header">בחר עיר לפורס:</div>
+    <ul class="picker-list" id="picker-list"></ul>
+    <div class="modal-actions">
+      <button id="confirm-city-btn">אישור</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let targetWord = localStorage.getItem("magic_city") || "פריז";
+  let isForceActive = false;
+  let tempChosenCity = targetWord;
+
+  const defaultCities = [
+    "לונדון", "טוקיו", "רומא", "מדריד", "אמסטרדם",
+    "ברלין", "בריסל", "בנגקוק", "פראג", "וינה",
+    "ליסבון", "ברצלונה", "אתונה", "סידני", "טורונטו",
+    "דובאי", "סיאול", "בודפשט", "סינגפור", "דבלין",
+    "לוס אנג'לס", "בואנוס איירס", "ריו דה ז'ניירו", "קייפטאון", "קיוטו",
+    "ניו יורק", "הלסינקי", "אוסלו", "שטוקהולם", "קופנהגן",
+    "ציריך", "ז'נבה", "מינכן", "פרנקפורט", "סן פרנסיסקו",
+    "שיקגו", "מיאמי", "ונקובר", "מונטריאול", "הונולולו",
+    "מרקש", "איסטנבול", "קהיר", "מומבאי", "ניו דלהי",
+    "קואלה לומפור", "האנוי", "מנילה", "אוקלנד", "מלבורן",
+    "סנטיאגו", "לימה", "בוגוטה", "מקסיקו סיטי", "הוואנה",
+    "דוברובניק", "זאגרב", "ליובליאנה", "סופיה", "בוקרשט",
+    "בלגרד", "קרקוב", "ורשה", "ריגה", "טאלין",
+    "וילנה", "אדינבורו", "בלפסט", "מנצ'סטר", "ליברפול",
+    "ניס", "ליון", "מרסיי", "פלורנס", "ונציה",
+    "נאפולי", "סביליה", "ולנסיה", "בילבאו", "פורטו",
+    "סלוניקי", "טביליסי", "ירוואן", "באקו", "אלמטי",
+    "טשקנט", "טאיפיי", "אוסקה", "אוקינאווה", "הונג קונג",
+    "מאקאו", "קולומבו", "קטמנדו", "רייקיאוויק", "לוצרן",
+    "זלצבורג", "ברוז'", "אנטוורפן", "ולטה", "אוסטין"
+  ];
+
+  const listEl = document.getElementById("list");
+  const secretTrigger = document.getElementById("secret-trigger");
+  const modal = document.getElementById("city-picker-modal");
+  const pickerList = document.getElementById("picker-list");
+  const confirmBtn = document.getElementById("confirm-city-btn");
+  let selectedElement = null;
+
+  // מנגנון הבחנה בין לחיצה בודדת ללחיצה כפולה
+  let clickCount = 0;
+  let clickTimer = null;
+
+  secretTrigger.addEventListener("click", function() {
+    clickCount++;
+    if (clickCount === 1) {
+      clickTimer = setTimeout(() => {
+        // לחיצה בודדת -> פתיחת תפריט בחירת עיר
+        openCityPicker();
+        clickCount = 0;
+      }, 300);
+    } else if (clickCount === 2) {
+      // לחיצה כפולה -> הפעלת / כיבוי הפורס
+      clearTimeout(clickTimer);
+      isForceActive = !isForceActive;
+      clickCount = 0;
+    }
+  });
+
+  // מילוי רשימת הבחירה בחלון
+  function openCityPicker() {
+    pickerList.innerHTML = "";
+    defaultCities.forEach(city => {
+      const li = document.createElement("li");
+      li.textContent = city;
+      if (city === targetWord) {
+        li.classList.add("active-choice");
+      }
+      li.onclick = function() {
+        document.querySelectorAll("#picker-list li").forEach(el => el.classList.remove("active-choice"));
+        this.classList.add("active-choice");
+        tempChosenCity = city;
+      };
+      pickerList.appendChild(li);
+    });
+    modal.style.display = "flex";
+  }
+
+  // אישור הבחירה
+  confirmBtn.addEventListener("click", function() {
+    targetWord = tempChosenCity;
+    localStorage.setItem("magic_city", targetWord);
+    modal.style.display = "none";
+    renderMainList();
+  });
+
+  // בניית הרשימה הראשית במסך
+  function renderMainList() {
+    listEl.innerHTML = "";
+    const visibleCities = defaultCities.filter(c => c !== targetWord);
+    
+    visibleCities.forEach((city, index) => {
+      const li = document.createElement("li");
+      const cityNumber = index + 1;
+      li.innerHTML = `<span class="city-label">${cityNumber}. ${city}</span>`;
+
+      li.onclick = function() {
+        if (selectedElement) {
+          selectedElement.classList.remove("selected");
+          const oldCheck = selectedElement.querySelector(".check-mark");
+          if (oldCheck) oldCheck.remove();
+          const prevIndex = selectedElement.getAttribute("data-index");
+          selectedElement.querySelector(".city-label").textContent = `${Number(prevIndex) + 1}. ${visibleCities[prevIndex]}`;
+        }
+
+        this.classList.add("selected");
+        this.setAttribute("data-index", index);
+
+        const displayCity = isForceActive ? targetWord : city;
+        this.innerHTML = `<span class="city-label">${cityNumber}. ${displayCity}</span> <span class="check-mark">✓</span>`;
+        selectedElement = this;
+      };
+
+      listEl.appendChild(li);
+    });
+  }
+
+  renderMainList();
+</script>
+</body>
+</html>
